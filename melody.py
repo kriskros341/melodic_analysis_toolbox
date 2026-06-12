@@ -1,6 +1,97 @@
 import numpy as np
 from collections import Counter
 
+
+def compute_tempo_features(utwor):
+    """Return aggregate tempo metrics from a PrettyMIDI-like object."""
+    _, bpms = utwor.get_tempo_changes()
+    bpms = np.asarray(bpms, dtype=float)
+    bpms = bpms[np.isfinite(bpms) & (bpms > 0)]
+
+    if len(bpms) == 0:
+        return {
+            'bpm_mean': 0.0,
+            'bpm_std': 0.0,
+            'tempo_stability': 0.0,
+        }
+
+    bpm_mean = float(np.mean(bpms))
+    bpm_std = float(np.std(bpms))
+    tempo_stability = 1.0 - bpm_std / bpm_mean if bpm_mean > 0 else 0.0
+
+    return {
+        'bpm_mean': bpm_mean,
+        'bpm_std': bpm_std,
+        'tempo_stability': tempo_stability,
+    }
+
+
+def dedupe_onsets(onsets, tol=0.03):
+    """Merge near-simultaneous onset times using a tolerance in seconds."""
+    onsets = np.sort(np.asarray(onsets, dtype=float))
+    onsets = onsets[np.isfinite(onsets)]
+    if len(onsets) == 0:
+        return onsets
+
+    keep = [float(onsets[0])]
+    for t in onsets[1:]:
+        # 30 ms approximates human temporal acuity for perceived simultaneity.
+        if t - keep[-1] > tol:
+            keep.append(float(t))
+    return np.array(keep)
+
+
+def compute_ioi_features(utwor):
+    """Return onset-interval regularity and beat-normalised density metrics."""
+    onsets = []
+    for inst in utwor.instruments:
+        if inst.is_drum:
+            continue
+        onsets.extend(note.start for note in inst.notes)
+
+    onsets = dedupe_onsets(onsets, tol=0.03)
+    if len(onsets) < 2:
+        return {
+            'notes_per_beat': 0.0,
+            'ioi_cv': 0.0,
+            'ioi_entropy': 0.0,
+        }
+
+    ioi = np.diff(onsets)
+    ioi = ioi[np.isfinite(ioi) & (ioi > 0)]
+    if len(ioi) == 0:
+        return {
+            'notes_per_beat': 0.0,
+            'ioi_cv': 0.0,
+            'ioi_entropy': 0.0,
+        }
+
+    ioi_mean = float(np.mean(ioi))
+    ioi_std = float(np.std(ioi))
+    ioi_cv = ioi_std / ioi_mean if ioi_mean > 0 else 0.0
+
+    counts, _ = np.histogram(ioi, bins=20)
+    total = counts.sum()
+    if total > 0:
+        probs = counts[counts > 0] / total
+        ioi_entropy = float(-np.sum(probs * np.log2(probs)))
+    else:
+        ioi_entropy = 0.0
+
+    tempo_features = compute_tempo_features(utwor)
+    bpm_mean = tempo_features['bpm_mean']
+    notes_per_beat = (
+        (60.0 / bpm_mean) / ioi_mean
+        if bpm_mean > 0 and ioi_mean > 0 else 0.0
+    )
+
+    return {
+        'notes_per_beat': notes_per_beat,
+        'ioi_cv': ioi_cv,
+        'ioi_entropy': ioi_entropy,
+    }
+
+
 def build_rolls(utwor, fs, min_notes=10):
     """Return (rolls, instruments) for all non-drum, non-sparse tracks."""
     rolls = []
@@ -230,7 +321,7 @@ def find_motifs(phrases, n_range=(2, 5), top_k=5):
 
     return results
 
-def compute_feature_vector(lead_pitch, phrases):
+def compute_feature_vector(lead_pitch, phrases, utwor):
     """
     Compute a numeric feature vector for one song.
     Returns a dict with scalar metrics + pc_histogram list.
@@ -284,6 +375,9 @@ def compute_feature_vector(lead_pitch, phrases):
     pc_counts = Counter(p % 12 for p in active)
     pc_histogram = [pc_counts.get(i, 0) / len(active) for i in range(12)]
 
+    tempo_features = compute_tempo_features(utwor)
+    ioi_features = compute_ioi_features(utwor)
+
     return {
         'interval_entropy':   entropy,
         'melodic_redundancy': redundancy,
@@ -291,22 +385,24 @@ def compute_feature_vector(lead_pitch, phrases):
         'pitch_range':        pitch_range,
         'avg_phrase_length':  avg_phrase_len,
         'pc_histogram':       pc_histogram,
-        'melodic_redundancy': redundancy,
-        'step_leap_ratio':    min(step_leap_ratio, 10.0),  # cap inf
-        'pitch_range':        pitch_range,
-        'avg_phrase_length':  avg_phrase_len,
-        'pc_histogram':       pc_histogram,
+        **tempo_features,
+        **ioi_features,
     }
 
 
 def feature_vector_to_array(fv):
-      """Flatten feature dict to a 1-D numpy array for similarity
-  computation."""
-      return np.array([
-          fv['interval_entropy'],
-          fv['melodic_redundancy'],
-          fv['step_leap_ratio'],
-          fv['pitch_range'] / 127.0,
-          fv['avg_phrase_length'] / 64.0,
-          *fv['pc_histogram'],
-      ])
+    """Flatten feature dict to a 1-D numpy array for similarity computation."""
+    return np.array([
+        fv['interval_entropy'],
+        fv['melodic_redundancy'],
+        fv['step_leap_ratio'],
+        fv['pitch_range'] / 127.0,
+        fv['avg_phrase_length'] / 64.0,
+        fv['bpm_mean'] / 200.0,
+        fv['bpm_std'] / 200.0,
+        fv['tempo_stability'],
+        min(fv['notes_per_beat'], 4.0) / 4.0,
+        fv['ioi_cv'],
+        fv['ioi_entropy'] / 5.0,
+        *fv['pc_histogram'],
+    ])
