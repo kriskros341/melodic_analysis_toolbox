@@ -26,6 +26,30 @@ def compute_tempo_features(utwor):
     }
 
 
+def fold_bpm_to_band(bpm, low=60.0, high=140.0, fold_up=False):
+    """Fold a tempo into a target band by metric octaves (halving / doubling).
+
+    MIDI tempo metadata is read at the quarter-note level, so pieces notated in
+    cut time (alla breve) report tempo at twice the felt pulse — a march at
+    ~110 BPM reads as ~220. Halving collapses this metric-octave artifact so the
+    value is interpretable as step cadence for Rhythmic Auditory Stimulation.
+
+    By default only over-fast tempi are folded down; genuinely slow pieces are
+    left untouched so the slow/fast axis (relevant e.g. for relaxation material)
+    is preserved. Set fold_up=True to also double tempi below `low` for a strict
+    one-octave normalisation. Returns 0.0 for non-positive or non-finite input.
+    """
+    b = float(bpm)
+    if not np.isfinite(b) or b <= 0:
+        return 0.0
+    while b > high:
+        b /= 2.0
+    if fold_up:
+        while b < low:
+            b *= 2.0
+    return b
+
+
 def dedupe_onsets(onsets, tol=0.03):
     """Merge near-simultaneous onset times using a tolerance in seconds."""
     onsets = np.sort(np.asarray(onsets, dtype=float))
@@ -43,13 +67,7 @@ def dedupe_onsets(onsets, tol=0.03):
 
 def compute_ioi_features(utwor):
     """Return onset-interval regularity and beat-normalised density metrics."""
-    onsets = []
-    for inst in utwor.instruments:
-        if inst.is_drum:
-            continue
-        onsets.extend(note.start for note in inst.notes)
-
-    onsets = dedupe_onsets(onsets, tol=0.03)
+    onsets = collect_onsets(utwor)
     if len(onsets) < 2:
         return {
             'notes_per_beat': 0.0,
@@ -90,6 +108,163 @@ def compute_ioi_features(utwor):
         'ioi_cv': ioi_cv,
         'ioi_entropy': ioi_entropy,
     }
+
+
+def collect_onsets(utwor, tol=0.03):
+    """Deduplicated onset times across all non-drum instruments (seconds)."""
+    onsets = []
+    for inst in utwor.instruments:
+        if inst.is_drum:
+            continue
+        onsets.extend(note.start for note in inst.notes)
+    return dedupe_onsets(onsets, tol=tol)
+
+
+def compute_pulse_clarity(utwor, fs_env=100, min_bpm=50, max_bpm=210, smooth_sigma_s=0.04):
+    """Strength of the dominant periodic pulse from onset autocorrelation.
+
+    Builds a smoothed onset envelope, autocorrelates it, and returns the height
+    of the strongest autocorrelation peak within a plausible beat-period range,
+    normalised to the zero-lag energy (range ~0..1). A steady, metrically regular
+    groove scores high; rubato or ametric material scores low. Higher pulse
+    clarity is associated with stronger motor entrainment, hence relevance to RAS.
+    """
+    onsets = collect_onsets(utwor)
+    if len(onsets) < 4:
+        return 0.0
+
+    duration = float(onsets[-1] - onsets[0])
+    if duration <= 0:
+        return 0.0
+
+    n = int(np.ceil(duration * fs_env)) + 1
+    env = np.zeros(n)
+    idx = np.clip(((onsets - onsets[0]) * fs_env).astype(int), 0, n - 1)
+    np.add.at(env, idx, 1.0)
+
+    # Gaussian smoothing so near-grid onsets reinforce rather than cancel.
+    sigma = max(smooth_sigma_s * fs_env, 1.0)
+    radius = int(np.ceil(3 * sigma))
+    kernel = np.exp(-0.5 * (np.arange(-radius, radius + 1) / sigma) ** 2)
+    kernel /= kernel.sum()
+    env = np.convolve(env, kernel, mode="same")
+
+    env = env - env.mean()
+    if not np.any(env):
+        return 0.0
+
+    acf = np.correlate(env, env, mode="full")[len(env) - 1:]
+    if acf[0] <= 0:
+        return 0.0
+    acf = acf / acf[0]
+
+    lag_min = int(np.floor(fs_env * 60.0 / max_bpm))
+    lag_max = min(int(np.ceil(fs_env * 60.0 / min_bpm)), len(acf) - 1)
+    if lag_min < 1 or lag_max <= lag_min:
+        return 0.0
+
+    return float(np.clip(acf[lag_min:lag_max + 1].max(), 0.0, 1.0))
+
+
+def compute_syncopation(utwor, subdivisions=4):
+    """Off-beat emphasis: how much onset activity falls on weak metric positions.
+
+    Each onset is placed by its phase within the beat onto a grid of
+    `subdivisions` positions, weighted by a binary metric hierarchy (downbeat
+    strongest). Returns 1 - mean(metric strength of onsets), in [0, 1]: 0 means
+    every onset sits on the strongest positions (no syncopation), higher means
+    more off-beat placement. Complements pulse clarity for rhythmic complexity.
+    """
+    beats = np.asarray(utwor.get_beats(), dtype=float)
+    if len(beats) < 2:
+        return 0.0
+
+    onsets = collect_onsets(utwor)
+    if len(onsets) == 0:
+        return 0.0
+
+    # Metric strength per grid position via 2-adic depth (downbeat = position 0).
+    def metric_level(j):
+        if j == 0:
+            j = subdivisions
+        level = 1
+        while j % 2 == 0:
+            j //= 2
+            level += 1
+        return level
+
+    strengths = np.array([metric_level(j) for j in range(subdivisions)], dtype=float)
+    strengths /= strengths.max()
+
+    k = np.searchsorted(beats, onsets, side="right") - 1
+    valid = (k >= 0) & (k < len(beats) - 1)
+    k = k[valid]
+    ons = onsets[valid]
+    if len(ons) == 0:
+        return 0.0
+
+    spans = beats[k + 1] - beats[k]
+    ok = spans > 0
+    if not np.any(ok):
+        return 0.0
+    phase = (ons[ok] - beats[k[ok]]) / spans[ok]
+    pos = (np.round(phase * subdivisions).astype(int)) % subdivisions
+
+    return float(1.0 - strengths[pos].mean())
+
+
+def compute_form_complexity(utwor, window_s=4.0):
+    """Formal heterogeneity over time from a self-similarity matrix.
+
+    Splits the piece into fixed-length windows and describes each by its chroma
+    (pitch-class) profile, onset density and mean register. Returns the mean
+    pairwise cosine distance between non-empty windows (the mean off-diagonal of
+    the self-dissimilarity matrix), in [0, 1]: low for pieces that keep one
+    texture and harmony throughout (a single continuous section), high for pieces
+    that move between contrasting sections (modulations, changes of register or
+    density). Captures formal — not rhythmic — complexity, so a repetitive groove
+    in an odd metre scores low while a multi-section piece scores high.
+    """
+    notes = []
+    for inst in utwor.instruments:
+        if inst.is_drum:
+            continue
+        notes.extend((note.start, note.pitch) for note in inst.notes)
+    if not notes:
+        return 0.0
+
+    end = utwor.get_end_time()
+    n_win = max(int(np.ceil(end / window_s)), 1)
+    chroma = np.zeros((n_win, 12))
+    density = np.zeros(n_win)
+    register = np.zeros(n_win)
+    count = np.zeros(n_win)
+    for start, pitch in notes:
+        w = min(int(start / window_s), n_win - 1)
+        chroma[w, pitch % 12] += 1.0
+        density[w] += 1.0
+        register[w] += pitch
+        count[w] += 1.0
+
+    active = count > 0
+    if active.sum() < 2:
+        return 0.0
+    chroma = chroma[active]
+    density = density[active]
+    register = register[active] / count[active]
+
+    row_sums = chroma.sum(axis=1, keepdims=True)
+    chroma = chroma / np.where(row_sums == 0, 1, row_sums)
+    density = density / density.max() if density.max() > 0 else density
+    span = register.max() - register.min()
+    register = (register - register.min()) / span if span > 0 else np.zeros_like(register)
+
+    feats = np.hstack([chroma, density[:, None], register[:, None]])
+    norms = np.linalg.norm(feats, axis=1, keepdims=True)
+    feats = feats / np.where(norms == 0, 1, norms)
+    sim = feats @ feats.T
+    iu = np.triu_indices(len(feats), k=1)
+    return float(np.clip(1.0 - sim[iu].mean(), 0.0, 1.0))
 
 
 def build_rolls(utwor, fs, min_notes=10):
@@ -385,6 +560,9 @@ def compute_feature_vector(lead_pitch, phrases, utwor):
         'pitch_range':        pitch_range,
         'avg_phrase_length':  avg_phrase_len,
         'pc_histogram':       pc_histogram,
+        'pulse_clarity':      compute_pulse_clarity(utwor),
+        'syncopation':        compute_syncopation(utwor),
+        'form_complexity':    compute_form_complexity(utwor),
         **tempo_features,
         **ioi_features,
     }
@@ -404,5 +582,40 @@ def feature_vector_to_array(fv):
         min(fv['notes_per_beat'], 4.0) / 4.0,
         fv['ioi_cv'],
         fv['ioi_entropy'] / 5.0,
+        fv['pulse_clarity'],
+        fv['syncopation'],
+        fv['form_complexity'],
         *fv['pc_histogram'],
     ])
+
+
+def compute_entrainment_suitability(features, low_cadence=90.0, high_cadence=130.0, tol=30.0, min_cadence=0.05):
+    """A-priori score (0..1) for suitability as a Rhythmic Auditory Stimulation cue.
+
+    Combines three conditions that the RAS literature (Thaut, Murgia) ties to
+    effective motor entrainment, as their geometric mean — so a failure on any
+    single dimension pulls the whole score down:
+      * cadence fit  — folded tempo inside a comfortable walking-cadence band
+        (~90-130 steps/min by default), with linear falloff over `tol` outside;
+      * pulse clarity — a clear, salient periodic pulse to lock steps to;
+      * on-beatness  — low syncopation, i.e. a predictable downbeat.
+    Expects a feature dict from compute_feature_vector (uses bpm_mean,
+    pulse_clarity, syncopation).
+
+    The cadence term is floored at `min_cadence` (default 0.05) so a tempo far
+    outside the band drastically lowers — but does not hard-zero — the score. This
+    keeps the ranking informative among unsuitable pieces (e.g. a slow but very
+    steady metronomic piece) instead of collapsing them all to exactly 0.
+    """
+    bpm = fold_bpm_to_band(features['bpm_mean'])
+    if low_cadence <= bpm <= high_cadence:
+        cadence = 1.0
+    elif bpm < low_cadence:
+        cadence = max(0.0, 1.0 - (low_cadence - bpm) / tol)
+    else:
+        cadence = max(0.0, 1.0 - (bpm - high_cadence) / tol)
+    cadence = max(cadence, min_cadence)
+
+    pulse = float(np.clip(features.get('pulse_clarity', 0.0), 0.0, 1.0))
+    on_beat = float(np.clip(1.0 - features.get('syncopation', 0.0), 0.0, 1.0))
+    return float((cadence * pulse * on_beat) ** (1.0 / 3.0))

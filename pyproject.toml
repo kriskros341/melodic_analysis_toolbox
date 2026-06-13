@@ -8,6 +8,8 @@ dependencies = [
     "matplotlib>=3.11.0",
     "numpy>=2.4.6",
     "pretty-midi>=0.2.11",
+    "scikit-learn>=1.8.0",
+    "scipy>=1.16.0",
 ]
 
 [dependency-groups]
