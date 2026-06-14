@@ -1,0 +1,25 @@
+[project]
+name = "melodic-analysis-toolbox"
+version = "0.1.0"
+description = "Automatyczna analiza melodyczna playlisty - szybkość grania (tempo) i pojawianie się kolejnych dźwięków (onsety / IOI)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.11.0",
+    "numpy>=2.4.6",
+    "pretty-midi>=0.2.11",
+    "scikit-learn>=1.8.0",
+    "scipy>=1.16.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+    "mypy>=2.1.0",
+    "ruff>=0.15.17",
+]
+
+[tool.ruff]
+  line-length = 120
+  # pyflakes, pycodestyle, isort
+  lint.select = ["F", "E", "W", "I001"]

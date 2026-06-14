@@ -1,0 +1,64 @@
+thaut2013:
+  type: chapter
+  title: Biomedical Research in Music
+  author: Thaut, Michael H.
+  date: 2013
+  page-range: 61-84
+  parent:
+    type: book
+    title: "Rhythm, Music, and the Brain: Scientific Foundations and Clinical Applications"
+    publisher: Routledge
+    location: New York
+
+murgia2018:
+  type: article
+  title: "The Use of Footstep Sounds as Rhythmic Auditory Stimulation for Gait Rehabilitation in Parkinson's Disease: A Randomized Controlled Trial"
+  author:
+    - Murgia, Mauro
+    - Pili, Roberta
+    - Corona, Federica
+    - Sors, Fabrizio
+    - Agostini, Tiziano
+    - Bernardis, Paolo
+    - Casula, Carlo
+    - Cossu, Giovanni
+    - Guicciardi, Marco
+    - Pau, Massimiliano
+  date: 2018
+  volume: 9
+  parent:
+    type: periodical
+    title: Frontiers in Neurology
+
+natanson1992:
+  type: book
+  title: Programowanie muzyki terapeutycznej
+  author: Natanson, Tadeusz
+  date: 1992
+  location: Wrocław
+  note: "Zeszyt naukowy nr 53, Seria Monografie"
+
+cylulko1992:
+  type: chapter
+  title: Diagnoza i diagnostyka muzykoterapeutyczna
+  author: Cylulko, Paweł
+  date: 1992
+  location: Wrocław
+  parent:
+    type: book
+    title: Programowanie muzyki terapeutycznej
+    editor:
+      - Cylulko, Paweł
+      - Gładyszewska-Cylulko, Joanna
+    note: "Zeszyt naukowy nr 53"
+
+palosz2009:
+  type: article
+  title: Przegląd badań nad uwarunkowaniami preferencji muzycznych
+  author: Pałosz, Paulina
+  date: 2009
+  volume: 52
+  issue: 2
+  parent:
+    type: periodical
+    title: Przegląd Psychologiczny
