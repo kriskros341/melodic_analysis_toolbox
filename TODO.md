@@ -1,12 +1,5 @@
 # TODO — rozwój pod kątem „Muzyka & Biocybernetyka"
 
-Roadmapa dalszego rozwoju projektu. Główny nacisk: powiązać istniejącą analizę
-melodyczno-rytmiczną (`melody.py`, notebooki `0`–`4`) z ramą biocybernetyczną
-przedmiotu (prowadzący: prof. Andrzej Mitas, Politechnika Śląska).
-
-**Temat zadania:** automatyczna analiza melodyczna playlisty — szybkość grania
-(tempo) i pojawianie się kolejnych dźwięków (onsety / IOI).
-
 **Cel nadrzędny:** pokazać, że to nie jest „tylko" projekt informatyczny — że
 analiza tempa i rytmu wprost łączy się z oddziaływaniem uporządkowanych pobudzeń
 audytoryjnych na układ ruchowy człowieka (efekty uczenia się E1–E3).
@@ -21,73 +14,45 @@ autorski projekt B+R prowadzącego, NCBR 2022). Literatura: Thaut 2013,
 Murgia i in. 2018.
 
 - [x] **Mapowanie BPM → kadencja chodu (steps/min).** Zrobione: `fold_bpm_to_band`
-  w `melody.py` składa tempo metrycznymi oktawami (÷2) do pasma chodu, co usuwa
-  artefakt *alla breve* (marsze raportowane jako 2× tempo). Użyte w
-  `4_comparison.ipynb`. Wniosek z analizy: po złożeniu prawie cała playlista
-  trafia w pasmo ~77–126 BPM — tempo jest więc warunkiem koniecznym, ale
-  niewystarczającym do różnicowania funkcji terapeutycznej.
+      w `melody.py` składa tempo metrycznymi oktawami (÷2) do pasma chodu, co usuwa
+      artefakt _alla breve_ (marsze raportowane jako 2× tempo). Użyte w
+      `4_comparison.ipynb`. Wniosek z analizy: po złożeniu prawie cała playlista
+      trafia w pasmo ~77–126 BPM — tempo jest więc warunkiem koniecznym, ale
+      niewystarczającym do różnicowania funkcji terapeutycznej.
 - [x] **Klasyfikacja playlisty wg pasma kadencji RAS.** Zrobione w
-  `4_comparison.ipynb` (sekcja „Przydatność do RAS"): ranking + klasy
-  dobry/warunkowy/nieodpowiedni + wykres słupkowy. Bezpośrednia odpowiedź na
-  temat 9. Wynik: marsze i stabilne utwory wysoko, *Moonlight*/*Nocturne* odpadają
-  (za wolne dla kadencji chodu).
+      `4_comparison.ipynb` (sekcja „Przydatność do RAS"): ranking + klasy
+      dobry/warunkowy/nieodpowiedni + wykres słupkowy. Bezpośrednia odpowiedź na
+      temat 9. Wynik: marsze i stabilne utwory wysoko, _Moonlight_/_Nocturne_ odpadają
+      (za wolne dla kadencji chodu).
 - [x] **Wskaźnik „pulse clarity" / siły pulsu.** Zrobione: `compute_pulse_clarity`
-  w `melody.py` — autokorelacja wygładzonej obwiedni onsetów, wysokość szczytu
-  w paśmie pulsu. Użyte w klasteryzacji `4_comparison.ipynb`; różnicuje materiał
-  regularny (Moonlight 0.89, Canon 0.87) od metrum nieparzystego (Take Five 0.34).
+      w `melody.py` — autokorelacja wygładzonej obwiedni onsetów, wysokość szczytu
+      w paśmie pulsu. Użyte w klasteryzacji `4_comparison.ipynb`; różnicuje materiał
+      regularny (Moonlight 0.89, Canon 0.87) od metrum nieparzystego (Take Five 0.34).
 - [x] **Złożony wskaźnik „entrainment suitability".** Zrobione:
-  `compute_entrainment_suitability` w `melody.py` — średnia geometryczna trzech
-  warunków a priori (dopasowanie kadencji + pulse clarity + niska synkopacja),
-  w [0,1]. Średnia geometryczna zeruje wynik, gdy którykolwiek warunek zawiedzie.
+      `compute_entrainment_suitability` w `melody.py` — średnia geometryczna trzech
+      warunków a priori (dopasowanie kadencji + pulse clarity + niska synkopacja),
+      w [0,1]. Średnia geometryczna zeruje wynik, gdy którykolwiek warunek zawiedzie.
 - [x] **Interpretacja wyników w języku przedmiotu.** Zrobione (sekcja
-  „Interpretacja kontrastowych przypadków" w `4_comparison.ipynb`): Stars and
-  Stripes (idealny), Moonlight (czysty puls, ale za wolno → 0), Take Five (tempo
-  OK, puls za słaby), Gymnopédie (pouczający — wskaźnik mierzy puls, nie pobudzenie).
+      „Interpretacja kontrastowych przypadków" w `4_comparison.ipynb`): Stars and
+      Stripes (idealny), Moonlight (czysty puls, ale za wolno → 0), Take Five (tempo
+      OK, puls za słaby), Gymnopédie (pouczający — wskaźnik mierzy puls, nie pobudzenie).
 
 ## Priorytet 2 — Rozbudowa samej analizy
 
-- [ ] **Autokorelacja onsetów → wykrycie metrum / okresowości.** Analiza w
-  dziedzinie częstotliwości struktury rytmicznej — punkt zaczepienia do
-  **tematu 1** (szeregi/transformacja Fouriera) na poziomie symbolicznym.
 - [x] **Miara synkopacji / „groove".** Zrobione: `compute_syncopation` w
-  `melody.py` — udział onsetów na słabych częściach taktu (siatka beatów z
-  hierarchią metryczną 2-adyczną). Użyte w klasteryzacji `4_comparison.ipynb`.
+      `melody.py` — udział onsetów na słabych częściach taktu (siatka beatów z
+      hierarchią metryczną 2-adyczną). Użyte w klasteryzacji `4_comparison.ipynb`.
 - [x] **Klastrowanie playlisty.** Zrobione w `4_comparison.ipynb`: klastrowanie
-  aglomeracyjne (Ward) + dendrogram + macierz podobieństwa na podzbiorze 7 cech
-  rytmiczno-formalnych. Wynik: nie odtwarza 3 kategorii apriorycznych, ale grupa
-  „złożona" się skupia; ujawnia, że „złożoność" jest dwuwymiarowa (rytmiczna vs
-  formalna).
+      aglomeracyjne (Ward) + dendrogram + macierz podobieństwa na podzbiorze 7 cech
+      rytmiczno-formalnych. Wynik: nie odtwarza 3 kategorii apriorycznych, ale grupa
+      „złożona" się skupia; ujawnia, że „złożoność" jest dwuwymiarowa (rytmiczna vs
+      formalna).
 - [x] **Złożoność formalna (zmiany sekcji).** Zrobione: `compute_form_complexity`
-  w `melody.py` — średnia odległość między oknami w macierzy samopodobieństwa
-  (chroma + gęstość + rejestr). Niska dla powtarzalnych groove'ów (Take Five 0.14),
-  wysoka dla wielosekcyjnych (Bohemian 0.25) i modulujących (Clair de Lune 0.24).
+      w `melody.py` — średnia odległość między oknami w macierzy samopodobieństwa
+      (chroma + gęstość + rejestr). Niska dla powtarzalnych groove'ów (Take Five 0.14),
+      wysoka dla wielosekcyjnych (Bohemian 0.25) i modulujących (Clair de Lune 0.24).
 - [ ] **Wizualizacje pod kątem rytmu.** Wykres tempo vs. pasmo kadencji chodu;
-  histogramy IOI per utwór; oś czasu onsetów.
-- [ ] **Walidacja klastrów (przeciw overfittingowi).** Odłożone świadomie: ARI
-  klastry-vs-etykiety (jedna liczba, raz), stabilność leave-one-out / bootstrap,
-  powiększenie korpusu do ~30–40 utworów i held-out. Cechy dobrane a priori, więc
-  można je teraz uczciwie ocenić. Patrz uwaga metodologiczna w notebooku.
+      histogramy IOI per utwór; oś czasu onsetów.
 
-## Priorytet 3 — Dokumentacja i część podawcza (tematy 10–11)
-
-- [ ] **Opracowanie kontrolne (PL).** Metoda → wyniki → wnioski z analizy
-  playlisty, z osadzeniem w ramie biocybernetycznej i literaturze.
-- [ ] **Prezentacja / wystąpienie.** Struktura pod „otwarte wystąpienie
-  słuchaczy".
 - [ ] Uzupełnić `glossary.md` o pojęcia: entrainment, RAS, kadencja, pulse
-  clarity.
-
----
-
-## Ograniczenia i uwagi metodologiczne
-
-- **MIDI to reprezentacja symboliczna** (nuty, czasy, wysokości) — nie ma w niej
-  sygnału audio. Dlatego analiza Fouriera / skala melowa z **tematu 1** dotyczą
-  recepcji *dźwięku* (audio) i nie dają się policzyć wprost z MIDI. Jeśli ma to
-  być w projekcie — trzeba najpierw zrenderować MIDI do audio (np. fluidsynth) i
-  liczyć FFT na próbkach. Inaczej zostajemy na poziomie symbolicznym (onsety,
-  IOI, autokorelacja rytmu) — i to warto jasno zaznaczyć w sprawozdaniu.
-- Wykrywanie tempa (`get_tempo_changes`) bierze tempo z metadanych MIDI; przy
-  plikach bez mapy tempa trzeba je estymować z onsetów.
-- Mapowanie BPM→kadencja zależy od interpretacji metrum (krok na ćwierćnutę vs.
-  na ósemkę) — stąd potrzeba uwzględnienia oktaw metrycznych.
+      clarity.

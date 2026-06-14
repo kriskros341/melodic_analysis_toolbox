@@ -1,4 +1,11 @@
-.PHONY: fetch report watch clean
+.PHONY: fetch report watch clean lint format
+
+lint: 
+	uv run ruff check .
+	uv run mypy --strict .
+
+format:
+	uv run ruff format .
 
 fetch:
 	mkdir -p .fonts
@@ -13,4 +20,4 @@ watch:
 	typst watch --font-path .fonts report/raport.typ report/raport.pdf
 
 clean:
-	rm -rfv .fonts
+	find . \( -type d -name __pycache__ -o -name "*.pyc" -o -type d -name .mypy_cache -o -type d -name .ruff_cache -o -type d -name .fonts \) -prune -exec rm -rfv {} \;
