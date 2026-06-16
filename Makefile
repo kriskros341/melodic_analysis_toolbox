@@ -1,4 +1,4 @@
-.PHONY: fetch report watch clean lint format
+.PHONY: fetch report watch slides clean lint format
 
 lint: 
 	uv run ruff check .
@@ -18,6 +18,9 @@ report:
 
 watch:
 	typst watch --font-path .fonts report/raport.typ report/raport.pdf
+
+slides:
+	typst compile --font-path .fonts report/slajdy.typ report/slajdy.pdf
 
 clean:
 	find . \( -type d -name __pycache__ -o -name "*.pyc" -o -type d -name .mypy_cache -o -type d -name .ruff_cache -o -type d -name .fonts \) -prune -exec rm -rfv {} \;
