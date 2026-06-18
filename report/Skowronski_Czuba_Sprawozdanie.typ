@@ -37,7 +37,7 @@
         [`compute_pulse_clarity`], [Wyrazistość pulsu z autokorelacji obwiedni onsetów.],
         [`compute_syncopation`], [Udział onsetów na słabych częściach taktu (hierarchia metryczna).],
         [`compute_form_complexity`], [Złożoność formalna z macierzy samopodobieństwa okien.],
-        [`compute_ioi_features`], [Regularność odstępów międzyonsetowych (`ioi_cv`, `ioi_entropy`).],
+        [`compute_ioi_features`], [Regularność i gęstość zdarzeń (`notes_per_beat`, `ioi_cv`, `ioi_entropy`).],
         [`compute_entrainment_suitability`], [Złożony wskaźnik przydatności do RAS (średnia geometryczna).],
         [`compute_feature_vector`], [Agregacja wszystkich cech utworu do wspólnego słownika.],
       )
@@ -155,6 +155,9 @@ Do opisu bodźca pod kątem RAS wybrano cechy o jasnej interpretacji fizycznej:
   więc tempo o metryczne oktawy (÷2), ale *tylko w dół* - tak usuwamy ten artefakt,
   a zarazem nie zawyżamy utworów naprawdę wolnych. Dzięki temu wartość odpowiada
   realnemu tempu bodźca, w zakresie typowym dla synchronizacji ruchu.
+- *Gęstość onsetów* (`notes_per_beat`) - średnia liczba onsetów przypadająca na
+  jeden beat; opisuje, jak gęsto puls jest wypełniony zdarzeniami (rzadki,
+  „przestronny" materiał wobec gęstej faktury).
 - *Wyrazistość pulsu* (`pulse_clarity`) - wysokość najsilniejszego szczytu
   autokorelacji wygładzonej obwiedni onsetów w paśmie pulsu, znormalizowana do
   energii w zerze. Wartość bliska 1 oznacza wyraźny, regularny puls; niska -
